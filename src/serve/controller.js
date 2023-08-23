@@ -141,7 +141,7 @@ function onLoad() {
   filterFunc.extra = 'input';
 
   const filterConfig = {
-    include: ['newEqual'],
+    include: ['newEqual', 'contains'],
     customFilters: {
       newEqual: {
         columnFilterType: 'myFilterType', // column filter type id
@@ -149,7 +149,7 @@ function onLoad() {
         func: filterFunc,
       },
     },
-    disableDynamicFiltering: true,
+    disableDynamicFiltering: false,
   };
 
   grid.filter = filterConfig;

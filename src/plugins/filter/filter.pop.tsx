@@ -86,10 +86,6 @@ export class FilterPanel {
   }
 
   componentWillRender() {
-    if (Object.keys(this.filterItems).length === 0) {
-      this.onAddNewFilter(defaultType);
-    }
-
     if (!this.isFilterIdSet) {
       this.isFilterIdSet = true;
       const filterItems = Object.keys(this.filterItems);
@@ -122,6 +118,7 @@ export class FilterPanel {
       );
       // options.push(<option disabled></option>);
     }
+
     return options;
   }
 
@@ -148,7 +145,11 @@ export class FilterPanel {
     const prop = this.changes?.prop;
     if (!(prop || prop === 0)) return '';
 
-    const propFilters = this.filterItems[prop] || [];
+    if (!this.filterItems[prop]) {
+      this.addNewFilter(defaultType);
+    }
+
+    let propFilters = this.filterItems[prop]
 
     return (
       <div key={this.filterId}>
@@ -180,7 +181,7 @@ export class FilterPanel {
           );
         })}
 
-        {propFilters.length > 0 ? <div class="add-filter-divider"></div> : ''}
+        {/* {propFilters.length > 0 ? <div class="add-filter-divider"></div> : ''} */}
       </div>
     );
   }
@@ -202,11 +203,11 @@ export class FilterPanel {
         <label>{capts.title}</label>
         <div class="filter-holder">{this.getFilterItemsList()}</div>
 
-        <div class="add-filter">
+        {/* <div class="add-filter">
           <select id="add-filter" class="select-css" onChange={e => this.onAddNewFilter(e)}>
             {this.renderSelectOptions(this.currentFilterType)}
           </select>
-        </div>
+        </div> */}
         <div class="filter-actions">
           {this.disableDynamicFiltering &&
             <RevoButton class={{ red: true, save: true }} onClick={() => this.onSave()}>
@@ -246,18 +247,17 @@ export class FilterPanel {
     this.filterChange.emit(this.filterItems);
   }, 400);
 
-  private onAddNewFilter(e: Event|FilterType) {
+  private onAddNewFilter(e: Event) {
     let el
     let type: FilterType;
 
-    if (e instanceof Event) {
-      el = e.target as HTMLSelectElement;
-      type = el.value as FilterType;
-    } else {
-      type = e as FilterType;
-    }
+    el = e.target as HTMLSelectElement;
+    type = el.value as FilterType;
 
+    this.addNewFilter(type);
+  }
 
+  private addNewFilter(type: FilterType) {
     this.currentFilterType = type;
     this.addNewFilterToProp();
 
@@ -280,8 +280,6 @@ export class FilterPanel {
     }
 
     if (this.currentFilterType === 'none') return;
-
-    if (this.filterItems[prop].length > 0) return;
 
     this.filterId++;
     this.currentFilterId = this.filterId;
