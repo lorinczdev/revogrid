@@ -254,7 +254,7 @@ export class FilterPanel {
       el = e.target as HTMLSelectElement;
       type = el.value as FilterType;
     } else {
-      type = e;
+      type = e as FilterType;
     }
 
 
