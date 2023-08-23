@@ -7,6 +7,7 @@ import '../../utils/closestPolifill';
 import { LogicFunction } from './filter.types';
 import { FilterCaptions } from './filter.plugin';
 import debounce from 'lodash/debounce';
+import first from 'lodash/first';
 
 /**
  * @typedef FilterItem
@@ -116,7 +117,7 @@ export class FilterPanel {
           </option>
         )),
       );
-      options.push(<option disabled></option>);
+      // options.push(<option disabled></option>);
     }
     return options;
   }
@@ -144,7 +145,12 @@ export class FilterPanel {
     const prop = this.changes?.prop;
     if (!(prop || prop === 0)) return '';
 
-    const propFilters = this.filterItems[prop] || [];
+    let propFilters = this.filterItems[prop] || [];
+
+    if (propFilters.length > 0) {
+      propFilters = [first(propFilters)]
+    }
+
     return (
       <div key={this.filterId}>
         {propFilters.map((d, index) => {
