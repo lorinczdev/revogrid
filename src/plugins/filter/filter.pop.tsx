@@ -100,13 +100,13 @@ export class FilterPanel {
     const options: VNode[] = [];
     const prop = this.changes?.prop;
 
-    if (!isDefaultTypeRemoved) {
-      options.push(
-        <option selected={this.currentFilterType === defaultType} value={defaultType}>
-          {prop && this.filterItems[prop] && this.filterItems[prop].length > 0 ? 'Add more condition...' : this.filterNames[defaultType]}
-        </option>,
-      );
-    }
+    // if (!isDefaultTypeRemoved) {
+    //   options.push(
+    //     <option selected={this.currentFilterType === defaultType} value={defaultType}>
+    //       {prop && this.filterItems[prop] && this.filterItems[prop].length > 0 ? 'Add more condition...' : this.filterNames[defaultType]}
+    //     </option>,
+    //   );
+    // }
 
     for (let gIndex in this.filterTypes) {
       options.push(
