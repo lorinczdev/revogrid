@@ -226,8 +226,8 @@ export class FilterPanel {
 
     this.filterItems[prop][index].type = type;
 
-    // // this re-renders the input to know if we need extra input
-    // this.filterId++;
+    // this re-renders the input to know if we need extra input
+    this.filterId++;
 
     // adding setTimeout will wait for the next tick DOM update then focus on input
     setTimeout(() => {
