@@ -131,7 +131,7 @@ export class FilterPanel {
     return (
       <input
         id={`filter-input-${currentFilter[index].id}`}
-        placeholder="Enter value..."
+        // placeholder="Enter value..."
         type="text"
         value={currentFilter[index].value}
         onInput={this.onUserInput.bind(this, index, prop)}
@@ -165,10 +165,10 @@ export class FilterPanel {
                 <select class="select-css select-filter" onChange={e => this.onFilterTypeChange(e, prop, index)}>
                   {this.renderSelectOptions(this.filterItems[prop][index].type, false)}
                 </select>
-                {/* <div class={FILTER_LIST_CLASS_ACTION}>{andOrButton}</div>
-                <div onClick={() => this.onRemoveFilter(d.id)}>
+                {/* <div class={FILTER_LIST_CLASS_ACTION}>{andOrButton}</div> */}
+                <div onClick={() => this.onReset()}>
                   <TrashButton />
-                </div> */}
+                </div>
               </div>
               <div>{this.renderExtra(prop, index)}</div>
             </div>
@@ -211,9 +211,9 @@ export class FilterPanel {
           <RevoButton class={{ red: true, reset: true }} onClick={() => this.onReset()}>
             {capts.reset}
           </RevoButton>
-          <RevoButton class={{ light: true, cancel: true }} onClick={() => this.onCancel()}>
+          {/* <RevoButton class={{ light: true, cancel: true }} onClick={() => this.onCancel()}>
             {capts.cancel}
-          </RevoButton>
+          </RevoButton> */}
         </div>
       </Host>
     );
@@ -267,6 +267,8 @@ export class FilterPanel {
     }
 
     if (this.currentFilterType === 'none') return;
+
+    if (this.filterItems[prop].length > 1) return;
 
     this.filterId++;
     this.currentFilterId = this.filterId;
