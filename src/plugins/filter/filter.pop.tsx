@@ -86,6 +86,10 @@ export class FilterPanel {
   }
 
   componentWillRender() {
+    if (Object.keys(this.filterItems).length === 0) {
+      this.onAddNewFilter(defaultType);
+    }
+
     if (!this.isFilterIdSet) {
       this.isFilterIdSet = true;
       const filterItems = Object.keys(this.filterItems);
@@ -242,9 +246,17 @@ export class FilterPanel {
     this.filterChange.emit(this.filterItems);
   }, 400);
 
-  private onAddNewFilter(e: Event) {
-    const el = e.target as HTMLSelectElement;
-    const type = el.value as FilterType;
+  private onAddNewFilter(e: Event|FilterType) {
+    let el
+    let type: FilterType;
+
+    if (e instanceof Event) {
+      el = e.target as HTMLSelectElement;
+      type = el.value as FilterType;
+    } else {
+      type = e;
+    }
+
 
     this.currentFilterType = type;
     this.addNewFilterToProp();
