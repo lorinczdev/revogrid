@@ -163,7 +163,7 @@ export class FilterPanel {
             <div key={d.id} class={FILTER_LIST_CLASS}>
               <div class={{ 'select-input': true }}>
                 <select class="select-css select-filter" onChange={e => this.onFilterTypeChange(e, prop, index)}>
-                  {this.renderSelectOptions(this.filterItems[prop][index].type, true)}
+                  {this.renderSelectOptions(this.filterItems[prop][index].type, false)}
                 </select>
                 {/* <div class={FILTER_LIST_CLASS_ACTION}>{andOrButton}</div>
                 <div onClick={() => this.onRemoveFilter(d.id)}>
