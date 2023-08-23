@@ -208,9 +208,9 @@ export class FilterPanel {
               {capts.save}
             </RevoButton>
           }
-          <RevoButton class={{ red: true, reset: true }} onClick={() => this.onReset()}>
+          {/* <RevoButton class={{ red: true, reset: true }} onClick={() => this.onReset()}>
             {capts.reset}
-          </RevoButton>
+          </RevoButton> */}
           {/* <RevoButton class={{ light: true, cancel: true }} onClick={() => this.onCancel()}>
             {capts.cancel}
           </RevoButton> */}
@@ -268,7 +268,7 @@ export class FilterPanel {
 
     if (this.currentFilterType === 'none') return;
 
-    if (this.filterItems[prop].length > 1) return;
+    if (this.filterItems[prop].length > 0) return;
 
     this.filterId++;
     this.currentFilterId = this.filterId;
