@@ -7,7 +7,6 @@ import '../../utils/closestPolifill';
 import { LogicFunction } from './filter.types';
 import { FilterCaptions } from './filter.plugin';
 import debounce from 'lodash/debounce';
-import first from 'lodash/first';
 
 /**
  * @typedef FilterItem
@@ -38,7 +37,7 @@ export type ShowData = {
   y: number;
 } & FilterItem;
 
-const defaultType: FilterType = 'none';
+const defaultType: FilterType = 'contains';
 
 const FILTER_LIST_CLASS = 'multi-filter-list';
 const FILTER_LIST_CLASS_ACTION = 'multi-filter-list-action';
@@ -145,11 +144,7 @@ export class FilterPanel {
     const prop = this.changes?.prop;
     if (!(prop || prop === 0)) return '';
 
-    let propFilters = this.filterItems[prop] || [];
-
-    if (propFilters.length > 0) {
-      propFilters = [first(propFilters)]
-    }
+    const propFilters = this.filterItems[prop] || [];
 
     return (
       <div key={this.filterId}>
@@ -231,8 +226,8 @@ export class FilterPanel {
 
     this.filterItems[prop][index].type = type;
 
-    // this re-renders the input to know if we need extra input
-    this.filterId++;
+    // // this re-renders the input to know if we need extra input
+    // this.filterId++;
 
     // adding setTimeout will wait for the next tick DOM update then focus on input
     setTimeout(() => {
