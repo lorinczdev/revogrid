@@ -1,5 +1,5 @@
 {
-  "name": "lorinczdev/revogrid",
+  "name": "@lorinczdev/revogrid",
   "version": "4.6.0-next.7",
   "description": "Virtual reactive data grid component - RevoGrid.",
   "license": "MIT",
