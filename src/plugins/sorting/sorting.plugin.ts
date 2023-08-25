@@ -74,7 +74,7 @@ export default class SortingPlugin extends BasePlugin {
   }
 
   private getComparer(column: RevoGrid.ColumnRegular, order: RevoGrid.Order): RevoGrid.CellCompareFunc {
-    const cellCmp: RevoGrid.CellCompareFunc = column?.cellCompare.bind({ order }) || this.defaultCellCompare;
+    const cellCmp: RevoGrid.CellCompareFunc = column?.cellCompare?.bind({ order }) || this.defaultCellCompare;
     if (order == 'asc') {
       return cellCmp;
     }
