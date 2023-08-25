@@ -1,11 +1,13 @@
 name: Publish NPM
+
 on:
-  push:
-    branches:
-      - next
+  release:
+    types: [published]
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v3
         with:
@@ -26,10 +28,12 @@ jobs:
       - name: Build
         run: npm run build
 
-      # Increment the patch version automatically
-      - name: Increment version
-        run: npm version patch --force -m "Increment version for CI build"
-        
+      # Set version number based on GitHub release
+      - name: Set version in package.json
+        run: |
+          RELEASE_VERSION=${{ github.event.release.tag_name }}
+          jq '.version = "${RELEASE_VERSION}"' package.json > package.tmp.json && mv package.tmp.json package.json
+
       # Publish the package to GitHub Packages
       - name: Publish to GitHub Packages
         run: npm publish
