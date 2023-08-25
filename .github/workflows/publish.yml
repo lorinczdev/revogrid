@@ -12,11 +12,11 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-      # Set up Node.js environment for GitHub Packages publishing
-      - name: Setup Node.js
-        uses: actions/setup-node@v3.8.1
-        with:
-          node-version: '18.x'
+    # Set up Node.js environment for GitHub Packages publishing
+    - name: Setup Node.js
+      uses: actions/setup-node@v3.8.1
+      with:
+        node-version: '18.x'
 
     - name: Install Dependencies
       run: npm install
