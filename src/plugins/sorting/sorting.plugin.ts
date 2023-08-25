@@ -47,14 +47,14 @@ export default class SortingPlugin extends BasePlugin {
       }
     };
     const aftercolumnsset = async ({ detail: { order } }: CustomEvent<ColumnSetEvent>) => {
-      const columns = await this.revogrid.getColumns();
-      const sortingFunc: SortingOrderFunction = {};
+      // const columns = await this.revogrid.getColumns();
+      // const sortingFunc: SortingOrderFunction = {};
 
-      for (let prop in order) {
-        const cmp = this.getComparer(ColumnDataProvider.getColumnByProp(columns, prop), order[prop]);
-        sortingFunc[prop] = cmp;
-      }
-      this.doSort(order, sortingFunc);
+      // for (let prop in order) {
+      //   const cmp = this.getComparer(ColumnDataProvider.getColumnByProp(columns, prop), order[prop]);
+      //   sortingFunc[prop] = cmp;
+      // }
+      // this.doSort(order, sortingFunc);
     };
     const headerclick = async (e: CustomEvent<RevoGrid.InitialHeaderClick>) => {
       if (e.defaultPrevented) {
