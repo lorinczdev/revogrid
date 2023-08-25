@@ -26,6 +26,10 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Increment the patch version automatically
+      - name: Increment version
+        run: npm version patch -m "Increment version for CI build"
+        
       # Publish the package to GitHub Packages
       - name: Publish to GitHub Packages
         run: npm publish
