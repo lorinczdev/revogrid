@@ -35,6 +35,7 @@ export { DataSourceState, Groups } from "./store/dataSource/data.store";
 export { ResizeProps } from "./services/resizable.directive";
 export { ViewportData } from "./components/revoGrid/viewport.interfaces";
 export { ElementScroll } from "./components/revoGrid/viewport.scrolling.service";
+
 export namespace Components {
     /**
      * Slots

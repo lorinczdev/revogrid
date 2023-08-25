@@ -7,13 +7,13 @@
     "doc": "docs"
   },
   "author": "revolist",
-  "homepage": "https://github.com/revolist/revogrid#readme",
+  "homepage": "https://github.com/lorinczdev/revogrid#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/revolist/revogrid.git"
+    "url": "git+https://github.com/lorinczdev/revogrid.git"
   },
   "bugs": {
-    "url": "https://github.com/revolist/revogrid/issues"
+    "url": "https://github.com/lorinczdev/revogrid/issues"
   },
   "keywords": [
     "revo-grid",
