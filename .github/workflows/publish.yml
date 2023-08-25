@@ -23,10 +23,13 @@ jobs:
 
     - name: Build
       run: npm run build
-
+      
     - name: Push Built Files to Dist Branch
       run: |
-        git checkout -b dist
-        git add -A
+        git checkout -b dist || git checkout dist
+        git add -f dist/*   
+        git add -f custom-element/*  
+        git add -f www/*   
+        git add -f loader/*   
         git commit -m "Built for commit ${{ github.sha }}"
         git push -f origin dist
