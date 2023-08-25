@@ -2,20 +2,21 @@ import { h, VNode } from '@stencil/core';
 import { RevoGrid, Selection } from '../../interfaces';
 import { FilterButton } from '../../plugins/filter/filter.button';
 import { SortingSign } from '../../plugins/sorting/sorting.sign';
-import { ResizeEvent } from '../../services/resizable.directive';
+import { ResizeEvent, ResizeProps } from '../../services/resizable.directive';
 import { DATA_COL, FOCUS_CLASS, HEADER_CLASS, HEADER_SORTABLE_CLASS, MIN_COL_SIZE } from '../../utils/consts';
 import { HeaderCellRenderer } from './headerCellRenderer';
 
 type Props = {
   column: RevoGrid.VirtualPositionItem;
-  data?: RevoGrid.ColumnRegular;
+  additionalData: any;
+  data?: RevoGrid.ColumnTemplateProp;
   range?: Selection.RangeArea;
   canResize?: boolean;
   canFilter?: boolean;
   onResize?(e: ResizeEvent): void;
   onClick?(data: RevoGrid.InitialHeaderClick): void;
   onDoubleClick?(data: RevoGrid.InitialHeaderClick): void;
-};
+} & Partial<Pick<ResizeProps, 'active'>>;
 
 const HeaderRenderer = (p: Props): VNode => {
   const cellClass: { [key: string]: boolean } = {
@@ -25,12 +26,12 @@ const HeaderRenderer = (p: Props): VNode => {
   if (p.data?.order) {
     cellClass[p.data.order] = true;
   }
-  const dataProps = {
+  const dataProps: RevoGrid.CellProps & Partial<ResizeProps> = {
     [DATA_COL]: p.column.itemIndex,
     canResize: p.canResize,
     minWidth: p.data?.minSize || MIN_COL_SIZE,
     maxWidth: p.data?.maxSize,
-    active: ['r'],
+    active: p.active || ['r'],
     class: cellClass,
     style: { width: `${p.column.size}px`, transform: `translateX(${p.column.start}px)` },
     onResize: p.onResize,
@@ -51,10 +52,9 @@ const HeaderRenderer = (p: Props): VNode => {
       }
     }
   }
-
   return (
-    <HeaderCellRenderer data={p.data} props={dataProps}>
-      {<SortingSign column={p.data} />}
+    <HeaderCellRenderer data={p.data} props={dataProps} additionalData={p.additionalData}>
+      {p.data?.order ? <SortingSign column={p.data} /> : ''}
       {p.canFilter && p.data?.filter !== false ? <FilterButton column={p.data} /> : ''}
     </HeaderCellRenderer>
   );

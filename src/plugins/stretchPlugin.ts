@@ -1,10 +1,16 @@
 import { each } from 'lodash';
+import { calculateRowHeaderSize } from '../utils/row-header-utils';
 import { RevoGrid, RevoPlugin } from '../interfaces';
-import { ColumnCollection } from '../services/column.data.provider';
+import ColumnDataProvider, { ColumnCollection } from '../services/column.data.provider';
+import { DataProvider } from '../services/data.provider';
 import DimensionProvider, { ColumnItems } from '../services/dimension.provider';
-import { getScrollbarWidth } from '../utils/utils';
+import { getScrollbarWidth } from '../utils';
 import BasePlugin from './basePlugin';
-
+type Providers = {
+  dataProvider: DataProvider;
+  dimensionProvider: DimensionProvider;
+  columnProvider: ColumnDataProvider;
+};
 /**
  * This plugin serves to recalculate columns initially
  * Base on empty space if there is any
@@ -19,15 +25,17 @@ type StretchedData = {
   size: number;
   index: number;
 };
+
 export default class StretchColumn extends BasePlugin {
-  private stretchedColumn: StretchedData|null = null;
+  private stretchedColumn: StretchedData | null = null;
   private readonly scrollSize;
-  constructor(
-    revogrid: HTMLRevoGridElement,
-    private dimensionProvider: DimensionProvider
-  ) {
+  constructor(revogrid: HTMLRevoGridElement, protected providers: Providers) {
     super(revogrid);
+
+    // calculate scroll bar size for current user session
     this.scrollSize = getScrollbarWidth(document);
+
+    // subscribe to column changes
     const beforecolumnapplied = ({ detail: { columns } }: CustomEvent<ColumnCollection>) => this.applyStretch(columns);
     this.addEventListener('beforecolumnapplied', beforecolumnapplied);
   }
@@ -57,30 +65,53 @@ export default class StretchColumn extends BasePlugin {
       return;
     }
     const type: RevoGrid.DimensionCols = 'rgCol';
-    this.dimensionProvider.setDimensionSize(type, { [this.stretchedColumn.index]: this.stretchedColumn.size });
+    const sizes = this.providers.dimensionProvider.stores[type].store.get('sizes');
+    this.providers.dimensionProvider.setCustomSizes(
+      type,
+      {
+        ...sizes,
+        [this.stretchedColumn.index]: this.stretchedColumn.size
+      }, true
+    );
   }
 
+  /**
+   * Apply stretch changes
+   */
   applyStretch(columns: ColumnItems) {
+    // unsubscribe from all events
     this.dropChanges();
+    // calculate grid size
     let sizeDifference = this.revogrid.clientWidth - 1;
-    each(columns, (_c, type: RevoGrid.DimensionCols) => {
-      const realSize = this.dimensionProvider.stores[type].store.get('realSize');
+    each(columns, (_, type: RevoGrid.DimensionCols) => {
+      const realSize = this.providers.dimensionProvider.stores[type].store.get('realSize');
       sizeDifference -= realSize;
     });
+    if (this.revogrid.rowHeaders) {
+      const itemsLength = this.providers.dataProvider.stores.rgRow.store.get('source').length;
+      const header = this.revogrid.rowHeaders;
+      const rowHeaderSize = calculateRowHeaderSize(itemsLength, typeof header === 'object' ? header : undefined);
+      if (rowHeaderSize) {
+        sizeDifference -= rowHeaderSize;
+      }
+    }
     if (sizeDifference > 0) {
-      // currently plugin accepts last column
+      // currently plugin accepts last column only
       const index = columns.rgCol.length - 1;
       const last = columns.rgCol[index];
-      // has column
-      // no auto size applied
-      // size for column shouldn't be defined
+      /**
+       * has column
+       * no auto size applied
+       * size for column shouldn't be defined
+       */
       const colSize = last?.size || this.revogrid.colSize || 0;
       const size = sizeDifference + colSize - 1;
-      if (last && !last.autoSize && (colSize < size)) {
+
+      if (last && !last.autoSize && colSize < size) {
         this.stretchedColumn = {
           initialSize: size,
           index,
-          size
+          size,
         };
         this.apply();
         this.activateChanges();
@@ -89,6 +120,9 @@ export default class StretchColumn extends BasePlugin {
   }
 }
 
-export function isStretchPlugin(plugin: RevoPlugin.Plugin|StretchColumn): plugin is StretchColumn {
+/**
+ * Check plugin type is Stretch
+ */
+export function isStretchPlugin(plugin: RevoPlugin.Plugin | StretchColumn): plugin is StretchColumn {
   return !!(plugin as StretchColumn).applyStretch;
 }

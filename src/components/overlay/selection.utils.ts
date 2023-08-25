@@ -66,30 +66,30 @@ export function isBeforeFirst({ x, y }: Cell) {
 }
 
 /** Compare cells, only 1 coordinate difference is possible */
-export function getDirectionCoordinate(initial: Cell, last: Cell): Partial<Cell> | null {
-  const c: (keyof Cell)[] = ['x', 'y'];
-  for (let k of c) {
-    if (initial[k] !== last[k]) {
-      return { [k]: 1 };
-    }
-  }
-  return null;
-}
+// export function getDirectionCoordinate(initial: Cell, last: Cell): Partial<Cell> | null {
+//   const c: (keyof Cell)[] = ['x', 'y'];
+//   for (let k of c) {
+//     if (initial[k] !== last[k]) {
+//       return { [k]: 1 };
+//     }
+//   }
+//   return null;
+// }
 
-export function getLargestAxis(initial: Cell, last: Cell): Partial<Cell> | null {
-  const cell: Partial<Cell> = {};
-  const c: (keyof Cell)[] = ['x', 'y'];
-  for (let k of c) {
-    cell[k] = Math.abs(initial[k] - last[k]);
-  }
-  if (cell.x > cell.y) {
-    return { x: 1 };
-  }
-  if (cell.y > cell.x) {
-    return { y: 1 };
-  }
-  return null;
-}
+// export function getLargestAxis(initial: Cell, last: Cell): Partial<Cell> | null {
+//   const cell: Partial<Cell> = {};
+//   const c: (keyof Cell)[] = ['x', 'y'];
+//   for (let k of c) {
+//     cell[k] = Math.abs(initial[k] - last[k]);
+//   }
+//   if (cell.x > cell.y) {
+//     return { x: 1 };
+//   }
+//   if (cell.y > cell.x) {
+//     return { y: 1 };
+//   }
+//   return null;
+// }
 
 function styleByCellProps(styles: { [key: string]: number }): Selection.RangeAreaCss {
   return {
@@ -101,10 +101,10 @@ function styleByCellProps(styles: { [key: string]: number }): Selection.RangeAre
 }
 
 export function getCell({ x, y, x1, y1 }: Selection.RangeArea, dimensionRow: RevoGrid.DimensionSettingsState, dimensionCol: RevoGrid.DimensionSettingsState) {
-  const top: number = getItemByIndex(dimensionRow, y).start;
-  const left: number = getItemByIndex(dimensionCol, x).start;
-  const bottom: number = getItemByIndex(dimensionRow, y1).end;
-  const right: number = getItemByIndex(dimensionCol, x1).end;
+  const top = getItemByIndex(dimensionRow, y).start;
+  const left = getItemByIndex(dimensionCol, x).start;
+  const bottom = getItemByIndex(dimensionRow, y1).end;
+  const right = getItemByIndex(dimensionCol, x1).end;
 
   return {
     left,

@@ -1,0 +1,34 @@
+.temp-bg-range {
+  display: block !important;
+  position: absolute;
+  pointer-events: none;
+  z-index: 9;
+  border: 1px solid rgb(255, 94, 0);
+  box-sizing: border-box;
+
+  &.Selection {
+    border: 1px dashed gray;
+  }
+
+  > div {
+    width: 1px;
+    height: 1px;
+    position: absolute;
+
+    &.top {
+      top: -1px;
+    }
+
+    &.bottom {
+      bottom: -1px;
+    }
+
+    &.left {
+      left: -1px;
+    }
+
+    &.right {
+      right: -1px;
+    }
+  }
+}

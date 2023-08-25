@@ -1,4 +1,3 @@
-import slice from 'lodash/slice';
 import { h } from '@stencil/core';
 import SelectionStoreService from '../../store/selection/selection.store.service';
 import { Observable, RevoGrid, Selection } from '../../interfaces';
@@ -10,35 +9,42 @@ type Config = {
   selectionStoreService: SelectionStoreService;
   columnService: ColumnService;
   dataStore: Observable<DataSourceState<RevoGrid.DataType, RevoGrid.DimensionRows>>;
-  onRangeApply(data: RevoGrid.DataLookup, range: Selection.RangeArea): void;
-  internalCopy(): Event;
+  rangeApply(data: RevoGrid.DataLookup, range: Selection.RangeArea): void;
+  rangeCopy(range: Selection.RangeArea): any;
+  rangeClear(): void;
+  beforeCopy(range: Selection.RangeArea): CustomEvent;
+  beforePaste(data: RevoGrid.DataLookup, range: Selection.RangeArea): CustomEvent;
 };
 
 export class ClipboardService {
   private clipboard: HTMLRevogrClipboardElement;
   constructor(private sv: Config) {}
-  private onCopy(e: DataTransfer) {
-    const canCopy = this.sv.internalCopy();
-    if (canCopy.defaultPrevented) {
-      return false;
-    }
-    let focus = this.sv.selectionStoreService.focused;
+
+  renderClipboard(readonly = false) {
+    return <revogr-clipboard
+      readonly={readonly}
+      onCopyRegion={e => this.onCopy(e.detail)}
+      onClearRegion={() => this.sv.rangeClear()}
+      ref={e => (this.clipboard = e)}
+      onPasteRegion={e => this.onPaste(e.detail)} />;
+  }
+  private getRegion() {
+    const focus = this.sv.selectionStoreService.focused;
     let range = this.sv.selectionStoreService.ranged;
-    let data: RevoGrid.DataFormat[][];
     if (!range) {
       range = getRange(focus, focus);
     }
-    if (range) {
-      const columns = [...this.sv.columnService.columns];
-      const props = slice(columns, range.x, range.x1 + 1).map(v => v.prop);
-      data = this.sv.columnService.copyRangeArray(range, props, this.sv.dataStore);
+    return range;
+  }
+  private onCopy(e: DataTransfer) {
+    const range = this.getRegion();
+    const canCopyEvent = this.sv.beforeCopy(range);
+    if (canCopyEvent.defaultPrevented) {
+      return false;
     }
+    const data = this.sv.rangeCopy(range);
     this.clipboard.doCopy(e, data);
     return true;
-  }
-
-  renderClipboard() {
-    return <revogr-clipboard onCopyRegion={e => this.onCopy(e.detail)} ref={e => (this.clipboard = e)} onPasteRegion={e => this.onPaste(e.detail)} />;
   }
 
   private onPaste(data: string[][]) {
@@ -47,7 +53,11 @@ export class ClipboardService {
     if (!focus || isEditing) {
       return;
     }
-    const { changed, range } = this.sv.columnService.getTransformedDataToApply(focus, data);
-    this.sv.onRangeApply(changed, range);
+    let { changed, range } = this.sv.columnService.getTransformedDataToApply(focus, data);
+    const { defaultPrevented: canPaste } = this.sv.beforePaste(changed, range);
+    if (canPaste) {
+      return;
+    }
+    this.sv.rangeApply(changed, range);
   }
 }

@@ -5,6 +5,7 @@ import { FILTER_PROP, isFilterBtn } from './filter.button';
 import { MultiFilterItem } from './filter.pop';
 import { filterEntities, filterNames, FilterType, filterTypes } from './filter.service';
 import { LogicFunction } from './filter.types';
+import { reduce } from 'lodash';
 
 type CustomFilter = {
   columnFilterType: string; // property defined in column filter: string/number/abstract/enum...etc
@@ -39,6 +40,7 @@ export type ColumnFilterConfig = {
   collection?: FilterCollection;
   include?: string[];
   customFilters?: Record<string, CustomFilter>;
+  filterProp?: string;
   localization?: FilterLocalization;
   multiFilterItems?: MultiFilterItem;
   disableDynamicFiltering?: boolean;
@@ -53,6 +55,7 @@ type FilterCollectionItem = {
 export type FilterCollection = Record<RevoGrid.ColumnProp, FilterCollectionItem>;
 
 export const FILTER_TRIMMED_TYPE = 'filter';
+export const FILTER_CONFIG_CHANGED_EVENT = 'filterconfigchanged';
 
 export default class FilterPlugin extends BasePlugin {
   private pop: HTMLRevogrFilterPanelElement;
@@ -61,6 +64,7 @@ export default class FilterPlugin extends BasePlugin {
   private possibleFilters: Record<string, string[]> = { ...filterTypes };
   private possibleFilterNames: Record<string, string> = { ...filterNames };
   private possibleFilterEntities: Record<string, LogicFunction> = { ...filterEntities };
+  private filterProp = FILTER_PROP;
 
   constructor(protected revogrid: HTMLRevoGridElement, uiid: string, config?: ColumnFilterConfig) {
     super(revogrid);
@@ -90,7 +94,18 @@ export default class FilterPlugin extends BasePlugin {
       await this.runFiltering();
     };
     this.addEventListener('headerclick', headerclick);
+    this.addEventListener(FILTER_CONFIG_CHANGED_EVENT, ({ detail }: CustomEvent<ColumnFilterConfig | boolean>) => {
+      if (!detail) {
+        this.clearFiltering();
+        return;
+      }
+      if (typeof detail === 'object') {
+        this.initConfig(detail);
+      }
+      aftersourceset();
+    });
     this.addEventListener('aftersourceset', aftersourceset);
+    this.addEventListener('filter', ({ detail }: CustomEvent) => this.onFilterChange(detail));
 
     this.revogrid.registerVNode([
       <revogr-filter-panel
@@ -107,9 +122,6 @@ export default class FilterPlugin extends BasePlugin {
   }
 
   private initConfig(config: ColumnFilterConfig) {
-    if (config.collection) {
-      this.filterCollection = { ...config.collection };
-    }
     if (config.multiFilterItems) {
       this.multiFilterItems = { ...config.multiFilterItems };
     }
@@ -123,6 +135,10 @@ export default class FilterPlugin extends BasePlugin {
         this.possibleFilterEntities[cType] = cFilter.func;
         this.possibleFilterNames[cType] = cFilter.name;
       }
+    }
+
+    if (config.filterProp) {
+      this.filterProp = config.filterProp;
     }
 
     /**
@@ -143,6 +159,16 @@ export default class FilterPlugin extends BasePlugin {
       if (Object.keys(filters).length > 0) {
         this.possibleFilters = filters;
       }
+    }
+    if (config.collection) {
+      this.filterCollection = reduce(config.collection, (result: FilterCollection, item, prop) => {
+        if (this.possibleFilterEntities[item.type]) {
+          result[prop] = item;
+        } else {
+          console.warn(`${item.type} type is not found.`);
+        }
+        return result;
+      }, {});
     }
 
     if (config.localization) {
@@ -224,13 +250,13 @@ export default class FilterPlugin extends BasePlugin {
     columns.forEach(rgCol => {
       const column = { ...rgCol };
       const hasFilter = filterItems[column.prop];
-      if (column[FILTER_PROP] && !hasFilter) {
-        delete column[FILTER_PROP];
+      if (column[this.filterProp] && !hasFilter) {
+        delete column[this.filterProp];
         columnsToUpdate.push(column);
       }
-      if (!column[FILTER_PROP] && hasFilter) {
+      if (!column[this.filterProp] && hasFilter) {
         columnsToUpdate.push(column);
-        column[FILTER_PROP] = true;
+        column[this.filterProp] = true;
       }
     });
     const itemsToFilter = this.getRowFilter(items, filterItems);
@@ -285,11 +311,9 @@ export default class FilterPlugin extends BasePlugin {
   }
 
   private async getData() {
-    const source = await this.revogrid.getSource();
-    const columns = await this.revogrid.getColumns();
     return {
-      source,
-      columns,
+      source: await this.revogrid.getSource(),
+      columns: await this.revogrid.getColumns(),
     };
   }
 

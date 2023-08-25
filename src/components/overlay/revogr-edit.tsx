@@ -1,29 +1,58 @@
-import { Component, Event, EventEmitter, Prop, h, Element, Host } from '@stencil/core';
+import { Component, Event, EventEmitter, Prop, h, Element, Host, Method } from '@stencil/core';
 
 import { Edition, RevoGrid } from '../../interfaces';
 import { EDIT_INPUT_WR } from '../../utils/consts';
 import { TextEditor } from './editors/text';
 
+/**
+ * Cell editor component
+ */
 @Component({
   tag: 'revogr-edit',
   styleUrl: 'revogr-edit-style.scss',
 })
-export class Edit {
+export class RevoEdit {
   @Element() element: HTMLElement;
   @Prop() editCell: Edition.EditCell;
-  private currentEditor: Edition.EditorBase | null = null;
 
   @Prop() column: RevoGrid.ColumnRegular | null;
   /** Custom editors register */
   @Prop() editor: Edition.EditorCtr | null;
 
-  @Event({ bubbles: false }) cellEdit: EventEmitter<Edition.SaveDataDetails>;
+  /** Save on editor close */
+  @Prop() saveOnClose: boolean = false;
+  /** Additional data to pass to renderer */
+  @Prop() additionalData: any;
+
+  /** Cell edit event */
+  @Event() cellEdit: EventEmitter<Edition.SaveDataDetails>;
 
   /**
    * Close editor event
    * pass true if requires focus next
    */
-  @Event({ bubbles: false }) closeEdit: EventEmitter<boolean | undefined>;
+  @Event() closeEdit: EventEmitter<boolean | undefined>;
+
+  /** Edit session editor */
+  private currentEditor: Edition.EditorBase | null = null;
+  private saveRunning = false;
+
+  @Method() async cancel() {
+    this.saveRunning = true;
+  }
+
+  onAutoSave() {
+    this.saveRunning = true;
+    const val = this.currentEditor.getValue && this.currentEditor.getValue();
+    // for editor plugin internal usage in case you want to stop save and use your own
+    if (this.currentEditor.beforeAutoSave) {
+      const canSave = this.currentEditor.beforeAutoSave(val);
+      if (canSave === false) {
+        return;
+      }
+    }
+    this.onSave(val, true);
+  }
 
   /**
    * Callback triggered on cell editor save
@@ -31,10 +60,13 @@ export class Edit {
    * @param preventFocus - if true editor will not be closed and next cell will not be focused
    */
   onSave(val: Edition.SaveData, preventFocus?: boolean): void {
+    this.saveRunning = true;
     if (this.editCell) {
       this.cellEdit.emit({
         rgCol: this.editCell.x,
         rgRow: this.editCell.y,
+        type: this.editCell.type,
+        prop: this.editCell.prop,
         val,
         preventFocus,
       });
@@ -42,17 +74,31 @@ export class Edit {
   }
 
   componentWillRender(): void {
-    if (!this.currentEditor) {
-      if (this.editor) {
-        this.currentEditor = new this.editor(
-          this.column,
-          (e, preventFocus) => this.onSave(e, preventFocus),
-          focusNext => this.closeEdit.emit(focusNext),
-        );
-      } else {
-        this.currentEditor = new TextEditor(this.column, (e, preventFocus) => this.onSave(e, preventFocus));
-      }
+    // we have active editor
+    if (this.currentEditor) {
+      return;
     }
+    this.saveRunning = false;
+    
+    // custom editor usage
+    // use TextEditor (editors/text.tsx) to create custom editor
+    if (this.editor) {
+      this.currentEditor = new this.editor(
+        this.column,
+        // save
+        (e, preventFocus) => {
+          this.onSave(e, preventFocus);
+        },
+        // cancel
+        focusNext => {
+          this.saveRunning = true;
+          this.closeEdit.emit(focusNext);
+        },
+      );
+      return;
+    }
+    // default text editor usage
+    this.currentEditor = new TextEditor(this.column, (e, preventFocus) => this.onSave(e, preventFocus));
   }
 
   componentDidRender(): void {
@@ -60,10 +106,19 @@ export class Edit {
       return;
     }
     this.currentEditor.element = this.element.firstElementChild;
-    this.currentEditor.componentDidRender && this.currentEditor.componentDidRender();
+    this.currentEditor.componentDidRender?.();
   }
 
   disconnectedCallback(): void {
+    if (this.saveOnClose) {
+      // shouldn't be cancelled by saveRunning
+      // editor requires getValue to be able to save
+      if (!this.saveRunning) {
+        this.onAutoSave();
+      }
+    }
+
+    this.saveRunning = false;
     if (!this.currentEditor) {
       return;
     }
@@ -78,7 +133,7 @@ export class Edit {
   render() {
     if (this.currentEditor) {
       this.currentEditor.editCell = this.editCell;
-      return <Host class={EDIT_INPUT_WR}>{this.currentEditor.render(h)}</Host>;
+      return <Host class={EDIT_INPUT_WR}>{this.currentEditor.render(h, this.additionalData)}</Host>;
     }
     return '';
   }

@@ -3,7 +3,7 @@ import { RevoGrid } from '../../interfaces';
 
 export type DimensionDataViewport = Pick<
   RevoGrid.DimensionSettingsState,
-  'indexes' | 'positionIndexes' | 'positionIndexToItem' | 'sizes' | 'originItemSize' | 'realSize' | 'frameOffset'
+  'indexes' | 'positionIndexes' | 'positionIndexToItem' | 'sizes' | 'originItemSize' | 'realSize'
 >;
 
 type ItemsToUpdate = Pick<RevoGrid.ViewportStateItems, 'items' | 'start' | 'end'>;
@@ -148,12 +148,13 @@ export function getItems(
  * Do batch items recombination
  * If items not overlapped with existing viewport returns null
  */
+type RecombindDimensionData = Pick<RevoGrid.DimensionSettingsState, 'sizes' | 'realSize' | 'originItemSize'>;
+type RecombineOffsetData = {
+  positiveDirection: boolean;
+} & ItemsToUpdate & RecombindDimensionData;
 export function recombineByOffset(
   offset: number,
-  data: {
-    positiveDirection: boolean;
-  } & ItemsToUpdate &
-    Pick<RevoGrid.DimensionSettingsState, 'sizes' | 'realSize' | 'originItemSize'>,
+  data: RecombineOffsetData
 ): ItemsToUpdate | null {
   const newItems = [...data.items];
   const itemsCount = newItems.length;
@@ -287,11 +288,11 @@ export function getLastItem(s: ItemsToUpdate): RevoGrid.VirtualPositionItem {
 
 /**
  * Set items sizes from start index to end
- * @param vpItems
- * @param start
- * @param size
- * @param lastCoordinate
- * @returns
+ * @param vpItems 
+ * @param start 
+ * @param size 
+ * @param lastCoordinate 
+ * @returns 
  */
 export function setItemSizes(
   vpItems: RevoGrid.VirtualPositionItem[],

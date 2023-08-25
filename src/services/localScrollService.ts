@@ -1,7 +1,8 @@
-import { scaleValue } from '../utils/utils';
+import { scaleValue } from '../utils';
 import { RevoGrid } from '../interfaces';
 
 interface Config {
+  skipAnimationFrame?: boolean;
   beforeScroll(e: RevoGrid.ViewPortScrollEvent): void;
   afterScroll(e: RevoGrid.ViewPortScrollEvent): void;
 }
@@ -20,11 +21,11 @@ const initialParams: Params = {
   virtualSize: 0,
   maxSize: 0,
 };
-
+const NO_COORDINATE = -1;
 export default class LocalScrollService {
-  private preventArtificialScroll: Record<RevoGrid.DimensionType, number|null> = { rgRow: null, rgCol: null };
+  private preventArtificialScroll: Record<RevoGrid.DimensionType, () => void | null> = { rgRow: null, rgCol: null };
   // to check if scroll changed
-  private previousScroll: Record<RevoGrid.DimensionType, number> = { rgRow: 0, rgCol: 0 };
+  private previousScroll: Record<RevoGrid.DimensionType, number> = { rgRow: NO_COORDINATE, rgCol: NO_COORDINATE };
   private params: Record<RevoGrid.DimensionType, Params> = { rgRow: { ...initialParams }, rgCol: { ...initialParams } };
 
   constructor(private cfg: Config) {}
@@ -43,9 +44,21 @@ export default class LocalScrollService {
   }
 
   // apply scroll values after scroll done
-  setScroll(e: RevoGrid.ViewPortScrollEvent) {
+  async setScroll(e: RevoGrid.ViewPortScrollEvent) {
     this.cancelScroll(e.dimension);
-    this.preventArtificialScroll[e.dimension] = window.requestAnimationFrame(() => {
+
+    const frameAnimation = new Promise<void>((resolve, reject) => {
+      // for example safari desktop has issues with animation frame
+      if (this.cfg.skipAnimationFrame) {
+        return resolve();
+      }
+      const animationId = window.requestAnimationFrame(() => {
+        resolve();
+      });
+      this.preventArtificialScroll[e.dimension] = reject.bind(null, animationId);
+    });
+    try {
+      await frameAnimation;
       const params = this.getParams(e.dimension);
       e.coordinate = Math.ceil(e.coordinate);
       this.previousScroll[e.dimension] = this.wrapCoordinate(e.coordinate, params);
@@ -54,22 +67,32 @@ export default class LocalScrollService {
         ...e,
         coordinate: params.virtualSize ? this.convert(e.coordinate, params, false) : e.coordinate,
       });
-    });
+
+    } catch (id) {
+      window.cancelAnimationFrame(id);
+    }
   }
 
   // initiate scrolling event
-  scroll(coordinate: number, dimension: RevoGrid.DimensionType, force: boolean = false, delta?: number) {
+  scroll(
+    coordinate: number,
+    dimension: RevoGrid.DimensionType,
+    force = false,
+    delta?: number,
+    outside = false
+  ) {
     this.cancelScroll(dimension);
     if (!force && this.previousScroll[dimension] === coordinate) {
-      this.previousScroll[dimension] = 0;
+      this.previousScroll[dimension] = NO_COORDINATE;
       return;
     }
 
-    const param: Params = this.getParams(dimension);
+    const param = this.getParams(dimension);
     this.cfg.beforeScroll({
       dimension: dimension,
       coordinate: param.virtualSize ? this.convert(coordinate, param) : coordinate,
       delta,
+      outside
     });
   }
 
@@ -80,7 +103,7 @@ export default class LocalScrollService {
   // check if scroll outside of region to avoid looping
   private wrapCoordinate(c: number, param: Params): number {
     if (c < 0) {
-      return 0;
+      return NO_COORDINATE;
     }
 
     if (c > param.maxSize) {
@@ -90,13 +113,12 @@ export default class LocalScrollService {
   }
 
   // prevent already started scroll, performance optimization
-  private cancelScroll(dimension: RevoGrid.DimensionType): boolean {
-    if (typeof this.preventArtificialScroll[dimension] === 'number') {
-      window.cancelAnimationFrame(this.preventArtificialScroll[dimension]);
+  private cancelScroll(dimension: RevoGrid.DimensionType) {
+    const canceler = this.preventArtificialScroll[dimension];
+    if (canceler) {
+      canceler();
       this.preventArtificialScroll[dimension] = null;
-      return true;
     }
-    return false;
   }
 
   /* convert virtual to real and back, scale range */

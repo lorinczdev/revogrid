@@ -1,33 +1,32 @@
-name: Publish NPM
+name: Build and Push to Dist Branch
+
 on:
   push:
     branches:
-      - next
+      - master # or whatever your primary branch is
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: next
-          
+    - uses: actions/checkout@v3
+
       # Set up Node.js environment for GitHub Packages publishing
       - name: Setup Node.js
         uses: actions/setup-node@v3.8.1
         with:
           node-version: '18.x'
-          registry-url: 'https://npm.pkg.github.com'
 
-      # Install project dependencies
-      - name: Install Dependencies
-        run: npm install
+    - name: Install Dependencies
+      run: npm install
 
-      # If you have a build process, include it
-      - name: Build
-        run: npm run build
+    - name: Build
+      run: npm run build
 
-      # Publish the package to GitHub Packages
-      - name: Publish to GitHub Packages
-        run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Push Built Files to Dist Branch
+      run: |
+        git checkout -b dist
+        git add -A
+        git commit -m "Built for commit ${{ github.sha }}"
+        git push -f origin dist

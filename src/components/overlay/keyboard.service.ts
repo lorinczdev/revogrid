@@ -2,42 +2,38 @@ import { Observable, Selection } from '../../interfaces';
 import { getRange } from '../../store/selection/selection.helpers';
 import SelectionStoreService from '../../store/selection/selection.store.service';
 import { codesLetter } from '../../utils/keyCodes';
-import { isClear, isCtrlKey, isEnterKey, isLetterKey } from '../../utils/keyCodes.utils';
-import { timeout } from '../../utils/utils';
+import { isAll, isClear, isCopy, isCut, isEnterKey, isLetterKey, isPaste } from '../../utils/keyCodes.utils';
+import { timeout } from '../../utils';
 import { EventData, getCoordinate, isAfterLast, isBeforeFirst } from './selection.utils';
+import { RESIZE_INTERVAL } from '../../utils/consts';
 
 type Config = {
   selectionStoreService: SelectionStoreService;
   selectionStore: Observable<Selection.SelectionStoreState>;
-  doEdit(val?: any): void;
+
+  applyEdit(val?: any): void;
   cancelEdit(): void;
   clearCell(): void;
+  focusNext(focus: Selection.Cell, next: Partial<Selection.Cell>): boolean;
   getData(): any;
   internalPaste(): void;
+  range(range: Selection.RangeArea): boolean;
+  selectAll(): void;
 };
 
+const DIRECTION_CODES: string[] = [
+  codesLetter.TAB,
+  codesLetter.ARROW_UP,
+  codesLetter.ARROW_DOWN,
+  codesLetter.ARROW_LEFT,
+  codesLetter.ARROW_RIGHT,
+];
 export class KeyboardService {
-  private ctrlDown = false;
 
   constructor(private sv: Config) {}
 
   async keyDown(e: KeyboardEvent, canRange: boolean) {
-    if (!this.sv.selectionStoreService.focused) {
-      return;
-    }
-    if (isCtrlKey(e.keyCode, navigator.platform)) {
-      this.ctrlDown = true;
-    }
-
-    // tab key means same as arrow right
-    if (codesLetter.TAB === e.code) {
-      this.keyChangeSelection(e, canRange);
-      return;
-    }
-
-    /**
-     *  IF EDIT MODE
-     */
+    // IF EDIT MODE
     if (this.sv.selectionStoreService.edited) {
       switch (e.code) {
         case codesLetter.ESCAPE:
@@ -47,36 +43,58 @@ export class KeyboardService {
       return;
     }
 
-    /**
-     *  IF NOT EDIT MODE
-     */
+    // IF NOT EDIT MODE
 
     // pressed clear key
-    if (isClear(e.code)) {
+    if (this.sv.selectionStoreService.ranged && isClear(e.code)) {
       this.sv.clearCell();
+      return;
+    }
+
+    // below works with focus only
+    if (!this.sv.selectionStoreService.focused) {
+      return;
+    }
+
+    // tab key means same as arrow right
+    if (codesLetter.TAB === e.code) {
+      this.keyChangeSelection(e, canRange);
       return;
     }
 
     // pressed enter
     if (isEnterKey(e.code)) {
-      this.sv.doEdit();
+      this.sv.applyEdit();
       return;
     }
 
     // copy operation
-    if (this.isCopy(e)) {
+    if (isCopy(e)) {
+      return;
+    }
+
+    // cut operation
+    if (isCut(e)) {
       return;
     }
 
     // paste operation
-    if (this.isPaste(e)) {
+    if (isPaste(e)) {
       this.sv.internalPaste();
+      return;
+    }
+
+    // select all
+    if (isAll(e)) {
+      if (canRange) {
+        this.selectAll(e);
+      }
       return;
     }
 
     // pressed letter key
     if (isLetterKey(e.keyCode)) {
-      this.sv.doEdit(e.key);
+      this.sv.applyEdit(e.key);
       return;
     }
 
@@ -86,19 +104,39 @@ export class KeyboardService {
     }
   }
 
+  private selectAll(e: KeyboardEvent) {
+    const range = this.sv.selectionStore.get('range');
+    const focus = this.sv.selectionStore.get('focus');
+    // if no range or focus - do nothing
+    if (!range || !focus) {
+      return;
+    }
+    e.preventDefault();
+    this.sv.selectAll();
+  }
+
   async keyChangeSelection(e: KeyboardEvent, canRange: boolean) {
     const data = this.changeDirectionKey(e, canRange);
     if (!data) {
       return false;
     }
-    await timeout();
+
+    // this interval needed for several cases
+    // grid could be resized before next click
+    // at this case to avoid screen jump we use this interval
+    await timeout(RESIZE_INTERVAL + 30);
 
     const range = this.sv.selectionStore.get('range');
     const focus = this.sv.selectionStore.get('focus');
-    return this.keyPositionChange(data.changes, this.sv.getData(), range, focus, data.isMulti);
+    return this.keyPositionChange(data.changes, range, focus, data.isMulti);
   }
 
-  keyPositionChange(changes: Partial<Selection.Cell>, eData: EventData, range?: Selection.RangeArea, focus?: Selection.Cell, isMulti = false) {
+  keyPositionChange(
+    changes: Partial<Selection.Cell>,
+    range?: Selection.RangeArea,
+    focus?: Selection.Cell,
+    isMulti = false
+  ) {
     if (!range || !focus) {
       return false;
     }
@@ -107,39 +145,21 @@ export class KeyboardService {
       return false;
     }
     if (isMulti) {
+      const eData: EventData = this.sv.getData();
       if (isAfterLast(data.end, eData) || isBeforeFirst(data.start)) {
         return false;
       }
       const range = getRange(data.start, data.end);
-      return this.sv.selectionStoreService.changeRange(range);
+      return this.sv.range(range);
     }
-    return this.sv.selectionStoreService.focus(data.start);
-  }
-
-  keyUp(e: KeyboardEvent): void {
-    if (isCtrlKey(e.keyCode, navigator.platform)) {
-      this.ctrlDown = false;
-    }
-  }
-
-  isCopy(e: KeyboardEvent): boolean {
-    return this.ctrlDown && e.code == codesLetter.C;
-  }
-  isPaste(e: KeyboardEvent): boolean {
-    return this.ctrlDown && e.code == codesLetter.V;
+    return this.sv.focusNext(data.start, changes);
   }
 
   /** Monitor key direction changes */
   changeDirectionKey(e: KeyboardEvent, canRange: boolean): { changes: Partial<Selection.Cell>; isMulti?: boolean } | void {
-    const isMulti: boolean = canRange && e.shiftKey;
-    switch (e.code) {
-      case codesLetter.TAB:
-      case codesLetter.ARROW_UP:
-      case codesLetter.ARROW_DOWN:
-      case codesLetter.ARROW_LEFT:
-      case codesLetter.ARROW_RIGHT:
-        e.preventDefault();
-        break;
+    const isMulti = canRange && e.shiftKey;
+    if (DIRECTION_CODES.includes(e.code)) {
+      e.preventDefault();
     }
     switch (e.code) {
       case codesLetter.ARROW_UP:

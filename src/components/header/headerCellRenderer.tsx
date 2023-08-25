@@ -1,21 +1,23 @@
 import { h, VNode } from '@stencil/core';
 import { RevoGrid } from '../../interfaces';
 import { dispatch } from '../../plugins/dispatcher';
-import { ResizableElement } from '../../services/resizable.directive';
 import ColumnService from '../data/columnService';
+import { ResizableElement } from '../../services/resizable.element';
+import { ResizeProps } from '../../services/resizable.directive';
 
 type Props = {
-  data?: RevoGrid.ColumnRegular;
-  props: RevoGrid.CellProps;
+  props: RevoGrid.CellProps & Partial<ResizeProps>;
+  additionalData: any;
+  data?: RevoGrid.ColumnTemplateProp;
 };
 
 const ON_COLUMN_CLICK = 'column-click';
 
-export const HeaderCellRenderer = ({ data, props }: Props, children: VNode[]): VNode => {
+export const HeaderCellRenderer = ({ data, props, additionalData }: Props, children: VNode[]): VNode => {
   let colTemplate: VNode | VNode[] | string = data?.name || '';
   let cellProps = props;
   if (data?.columnTemplate) {
-    colTemplate = data.columnTemplate(h, data);
+    colTemplate = data.columnTemplate(h, data, additionalData);
   }
   if (data?.columnProperties) {
     const extra = data.columnProperties(data);

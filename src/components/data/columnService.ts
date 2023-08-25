@@ -1,24 +1,13 @@
-import { h, VNode } from '@stencil/core';
 import { DataSourceState, getSourceItem, getVisibleSourceItem, setSourceByVirtualIndex } from '../../store/dataSource/data.store';
 import { CELL_CLASS, DISABLED_CLASS } from '../../utils/consts';
 import { Edition, Observable, RevoGrid, Selection } from '../../interfaces';
 import { getRange } from '../../store/selection/selection.helpers';
 
-import BeforeSaveDataDetails = Edition.BeforeSaveDataDetails;
-import ColumnDataSchemaModel = RevoGrid.ColumnDataSchemaModel;
-import ColumnProp = RevoGrid.ColumnProp;
-import DataType = RevoGrid.DataType;
 import { isGroupingColumn } from '../../plugins/groupingRow/grouping.service';
+import { slice } from 'lodash';
 
-export interface ColumnServiceI {
-  columns: RevoGrid.ColumnRegular[];
-  customRenderer(r: number, c: number, model: ColumnDataSchemaModel): VNode | string | void;
-  isReadOnly(r: number, c: number): boolean;
-  getCellData(r: number, c: number): string;
-}
-
-export type ColumnSource = Observable<DataSourceState<RevoGrid.ColumnRegular, RevoGrid.DimensionCols>>;
-export type RowSource = Observable<DataSourceState<DataType, RevoGrid.DimensionRows>>;
+export type ColumnSource<T = RevoGrid.ColumnRegular> = Observable<DataSourceState<T, RevoGrid.DimensionCols>>;
+export type RowSource = Observable<DataSourceState<RevoGrid.DataType, RevoGrid.DimensionRows>>;
 
 export type ColumnStores = {
   [T in RevoGrid.DimensionCols]: ColumnSource;
@@ -27,17 +16,19 @@ export type RowStores = {
   [T in RevoGrid.DimensionRows]: RowSource;
 };
 
-export default class ColumnService implements ColumnServiceI {
+export default class ColumnService {
   private unsubscribe: { (): void }[] = [];
   get columns(): RevoGrid.ColumnRegular[] {
     return getVisibleSourceItem(this.source);
   }
 
   hasGrouping = false;
+  type: RevoGrid.DimensionCols;
 
   constructor(private dataStore: RowSource, private source: ColumnSource) {
     this.unsubscribe.push(source.onChange('source', s => this.checkGrouping(s)));
     this.checkGrouping(source.get('source'));
+    this.type = source.get('type');
   }
 
   private checkGrouping(cols: RevoGrid.ColumnRegular[]) {
@@ -98,16 +89,8 @@ export default class ColumnService implements ColumnServiceI {
     return props;
   }
 
-  customRenderer(_r: number, c: number, model: ColumnDataSchemaModel): VNode | string | void {
-    const tpl = this.columns[c]?.cellTemplate;
-    if (tpl) {
-      return tpl((h as unknown) as RevoGrid.HyperFunc<VNode>, model);
-    }
-    return;
-  }
-
   getRowClass(r: number, prop: string): string {
-    const model: DataType = getSourceItem(this.dataStore, r) || {};
+    const model = getSourceItem(this.dataStore, r) || {};
     return model[prop] || '';
   }
 
@@ -116,16 +99,18 @@ export default class ColumnService implements ColumnServiceI {
     return ColumnService.getData(data.model[data.prop as number]);
   }
 
-  getSaveData(rowIndex: number, c: number, val?: string): BeforeSaveDataDetails {
+  getSaveData(rowIndex: number, colIndex: number, val?: string): Edition.BeforeSaveDataDetails {
     if (typeof val === 'undefined') {
-      val = this.getCellData(rowIndex, c);
+      val = this.getCellData(rowIndex, colIndex);
     }
-    const data = this.rowDataModel(rowIndex, c);
+    const data = this.rowDataModel(rowIndex, colIndex);
     return {
       prop: data.prop,
       rowIndex,
+      colIndex,
       val,
       model: data.model,
+      colType: this.type,
       type: this.dataStore.get('type'),
     };
   }
@@ -142,31 +127,39 @@ export default class ColumnService implements ColumnServiceI {
     return editor;
   }
 
-  rowDataModel(rowIndex: number, c: number): ColumnDataSchemaModel {
-    const column = this.columns[c];
-    const prop: ColumnProp | undefined = column?.prop;
+  rowDataModel(rowIndex: number, colIndex: number): RevoGrid.ColumnDataSchemaModel {
+    const column = this.columns[colIndex];
+    const prop: RevoGrid.ColumnProp | undefined = column?.prop;
     const model = getSourceItem(this.dataStore, rowIndex) || {};
+    const type = this.dataStore.get('type');
     return {
       prop,
       model,
       data: this.dataStore.get('source'),
       column,
       rowIndex,
+      colIndex,
+      colType: this.type,
+      type,
     };
   }
 
-  getRangeData(d: Selection.ChangedRange): RevoGrid.DataLookup {
+  getRangeData(d: Selection.ChangedRange, columns: RevoGrid.ColumnRegular[]): {
+    changed: RevoGrid.DataLookup,
+    mapping: Selection.OldNewRangeMapping,
+  } {
     const changed: RevoGrid.DataLookup = {};
 
     // get original length sizes
-    const copyColLength = d.oldProps.length;
-    const copyFrom = this.copyRangeArray(d.oldRange, d.oldProps, this.dataStore);
-    const copyRowLength = copyFrom.length;
+    const copyColLength = d.oldRange.x1 - d.oldRange.x + 1;
+    const copyRowLength = d.oldRange.y1 - d.oldRange.y + 1;
+    const mapping: Selection.OldNewRangeMapping = {};
 
     // rows
     for (let rowIndex = d.newRange.y, i = 0; rowIndex < d.newRange.y1 + 1; rowIndex++, i++) {
       // copy original data link
-      const copyRow = copyFrom[i % copyRowLength];
+      const oldRowIndex = d.oldRange.y + i % copyRowLength;
+      const copyRow = getSourceItem(this.dataStore, oldRowIndex) || {};
 
       // columns
       for (let colIndex = d.newRange.x, j = 0; colIndex < d.newRange.x1 + 1; colIndex++, j++) {
@@ -175,8 +168,13 @@ export default class ColumnService implements ColumnServiceI {
           continue;
         }
 
-        const p = this.columns[colIndex].prop;
-        const currentCol = j % copyColLength;
+        // requested column beyond range
+        if (!this.columns[colIndex]) {
+          continue;
+        }
+        const prop = this.columns[colIndex]?.prop;
+        const copyColIndex = d.oldRange.x + j % copyColLength;
+        const copyColumnProp = columns[copyColIndex].prop;
 
         /** if can write */
         if (!this.isReadOnly(rowIndex, colIndex)) {
@@ -184,11 +182,23 @@ export default class ColumnService implements ColumnServiceI {
           if (!changed[rowIndex]) {
             changed[rowIndex] = {};
           }
-          changed[rowIndex][p] = copyRow[currentCol];
+          changed[rowIndex][prop] = copyRow[copyColumnProp];
+          /** Generate mapping object */
+          if (!mapping[rowIndex]) {
+            mapping[rowIndex] = {};
+          }
+          mapping[rowIndex][prop] = {
+            colIndex: copyColIndex,
+            colProp: copyColumnProp,
+            rowIndex: oldRowIndex
+          };
         }
       }
     }
-    return changed;
+    return {
+      changed,
+      mapping,
+    };
   }
 
   getTransformedDataToApply(
@@ -237,9 +247,12 @@ export default class ColumnService implements ColumnServiceI {
   }
 
   applyRangeData(data: RevoGrid.DataLookup) {
-    const items: Record<number, DataType> = {};
+    const items: Record<number, RevoGrid.DataType> = {};
     for (let rowIndex in data) {
       const oldModel = (items[rowIndex] = getSourceItem(this.dataStore, parseInt(rowIndex, 10)));
+      if (!oldModel) {
+        continue;
+      }
       for (let prop in data[rowIndex]) {
         oldModel[prop] = data[rowIndex][prop];
       }
@@ -254,6 +267,10 @@ export default class ColumnService implements ColumnServiceI {
     for (let rowIndex = d.y, i = 0; rowIndex < d.y1 + 1; rowIndex++, i++) {
       // columns
       for (let colIndex = d.x, j = 0; colIndex < d.x1 + 1; colIndex++, j++) {
+        // requested column beyond range
+        if (!this.columns[colIndex]) {
+          continue;
+        }
         const p = this.columns[colIndex].prop;
 
         /** if can write */
@@ -269,28 +286,78 @@ export default class ColumnService implements ColumnServiceI {
     return changed;
   }
 
-  copyRangeArray(
-    range: Selection.RangeArea,
-    rangeProps: RevoGrid.ColumnProp[],
+  getRangeTransformedToProps(
+    d: Selection.RangeArea,
     store: Observable<DataSourceState<RevoGrid.DataType, RevoGrid.DimensionRows>>,
-  ): RevoGrid.DataFormat[][] {
-    const toCopy: RevoGrid.DataFormat[][] = [];
-    for (let i = range.y; i < range.y1 + 1; i++) {
-      const rgRow: RevoGrid.DataFormat[] = [];
-      for (let prop of rangeProps) {
-        const item = getSourceItem(store, i);
-        rgRow.push(item[prop]);
+  ) {
+    const area: {
+      prop: RevoGrid.ColumnProp,
+      rowIndex: number,
+      colIndex: number,
+      model: RevoGrid.DataSource,
+      colType: RevoGrid.DimensionCols,
+      type: RevoGrid.DimensionRows,
+    }[] = [];
+
+    const type = this.dataStore.get('type');
+    // rows
+    for (let rowIndex = d.y, i = 0; rowIndex < d.y1 + 1; rowIndex++, i++) {
+      // columns
+      for (let colIndex = d.x, j = 0; colIndex < d.x1 + 1; colIndex++, j++) {
+        const prop = this.columns[colIndex]?.prop;
+        area.push({
+          prop,
+          rowIndex,
+          colIndex,
+          model: getSourceItem(store, rowIndex),
+          type,
+          colType: this.type,
+        });
       }
-      toCopy.push(rgRow);
     }
-    return toCopy;
+    return area;
   }
 
-  static getData(val?: any): string {
+  copyRangeArray(
+    range: Selection.RangeArea,
+    store: Observable<DataSourceState<RevoGrid.DataType, RevoGrid.DimensionRows>>,
+  ) {
+    const cols = [...this.columns];
+    const props = slice(cols, range.x, range.x1 + 1).map(v => v.prop);
+    const toCopy: RevoGrid.DataFormat[][] = [];
+    const mapping: { [rowIndex: number]: { [colProp: RevoGrid.ColumnProp]: any } } = {};
+
+    // rows indexes
+    for (let i = range.y; i <= range.y1; i++) {
+      const rgRow: RevoGrid.DataFormat[] = [];
+      mapping[i] = {};
+
+      // columns indexes
+      for (let prop of props) {
+        const item = getSourceItem(store, i);
+
+        // if no item - skip
+        if (!item) {
+          continue;
+        }
+        const val = item[prop];
+        rgRow.push(val);
+        mapping[i][prop] = val;
+      }
+
+      toCopy.push(rgRow);
+    }
+    return {
+      data: toCopy,
+      mapping
+    };
+  }
+
+  static getData(val?: any) {
     if (typeof val === 'undefined' || val === null) {
       return '';
     }
-    return val.toString();
+    return val;
   }
 
   destroy() {

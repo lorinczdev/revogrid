@@ -42,6 +42,12 @@ export type AutoSizeColumnConfig = {
   preciseSize?: boolean;
 };
 
+type Providers = {
+  dataProvider: DataProvider;
+  dimensionProvider: DimensionProvider;
+  columnProvider: ColumnDataProvider;
+};
+
 const LETTER_BLOCK_SIZE = 7;
 
 enum ColumnAutoSizeMode {
@@ -64,15 +70,7 @@ export default class AutoSizeColumn extends BasePlugin {
   private dataResolve: Resolve | null = null;
   private dataReject: Reject | null = null;
 
-  constructor(
-    revogrid: HTMLRevoGridElement,
-    private providers: {
-      dataProvider: DataProvider;
-      dimensionProvider: DimensionProvider;
-      columnProvider: ColumnDataProvider;
-    },
-    private config?: AutoSizeColumnConfig,
-  ) {
+  constructor(revogrid: HTMLRevoGridElement, protected providers: Providers, private config?: AutoSizeColumnConfig) {
     super(revogrid);
     this.letterBlockSize = config?.letterBlockSize || LETTER_BLOCK_SIZE;
 
@@ -95,12 +93,12 @@ export default class AutoSizeColumn extends BasePlugin {
       this.columnSet(columns);
     };
     const headerDblClick = ({ detail }: CustomEvent<RevoGrid.InitialHeaderClick>) => {
-      const type = ColumnDataProvider.getColumnType(detail);
+      const type = ColumnDataProvider.getColumnType(detail.column);
       const size = this.getColumnSize(detail.index, type);
       if (size) {
-        this.providers.dimensionProvider.setDimensionSize(type, {
+        this.providers.dimensionProvider.setCustomSizes(type, {
           [detail.index]: size,
-        });
+        }, true);
       }
     };
     this.addEventListener('beforecolumnsset', beforecolumnsset);
@@ -146,7 +144,7 @@ export default class AutoSizeColumn extends BasePlugin {
         // calculate size
         rgCol.size = sizes[rgCol.index] = source.reduce((prev, rgRow) => Math.max(prev, this.getLength(rgRow[rgCol.prop])), this.getLength(rgCol.name || ''));
       });
-      this.providers.dimensionProvider.setDimensionSize(type, sizes);
+      this.providers.dimensionProvider.setCustomSizes(type, sizes, true);
     });
   }
 
@@ -197,7 +195,7 @@ export default class AutoSizeColumn extends BasePlugin {
         }
       });
 
-      this.providers.dimensionProvider.setDimensionSize(type, sizes);
+      this.providers.dimensionProvider.setCustomSizes(type, sizes, true);
     });
   }
 
@@ -219,7 +217,7 @@ export default class AutoSizeColumn extends BasePlugin {
           }
         }
       });
-      this.providers.dimensionProvider.setDimensionSize(type, sizes);
+      this.providers.dimensionProvider.setCustomSizes(type, sizes, true);
     });
   }
 

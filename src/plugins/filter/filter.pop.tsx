@@ -37,7 +37,7 @@ export type ShowData = {
   y: number;
 } & FilterItem;
 
-const defaultType: FilterType = 'none';
+const defaultType: FilterType = 'contains';
 
 const FILTER_LIST_CLASS = 'multi-filter-list';
 const FILTER_LIST_CLASS_ACTION = 'multi-filter-list-action';
@@ -100,13 +100,13 @@ export class FilterPanel {
     const options: VNode[] = [];
     const prop = this.changes?.prop;
 
-    if (!isDefaultTypeRemoved) {
-      options.push(
-        <option selected={this.currentFilterType === defaultType} value={defaultType}>
-          {prop && this.filterItems[prop] && this.filterItems[prop].length > 0 ? 'Add more condition...' : this.filterNames[defaultType]}
-        </option>,
-      );
-    }
+    // if (!isDefaultTypeRemoved) {
+    //   options.push(
+    //     <option selected={this.currentFilterType === defaultType} value={defaultType}>
+    //       {prop && this.filterItems[prop] && this.filterItems[prop].length > 0 ? 'Add more condition...' : this.filterNames[defaultType]}
+    //     </option>,
+    //   );
+    // }
 
     for (let gIndex in this.filterTypes) {
       options.push(
@@ -116,8 +116,9 @@ export class FilterPanel {
           </option>
         )),
       );
-      options.push(<option disabled></option>);
+      // options.push(<option disabled></option>);
     }
+
     return options;
   }
 
@@ -131,7 +132,7 @@ export class FilterPanel {
     return (
       <input
         id={`filter-input-${currentFilter[index].id}`}
-        placeholder="Enter value..."
+        // placeholder="Enter value..."
         type="text"
         value={currentFilter[index].value}
         onInput={this.onUserInput.bind(this, index, prop)}
@@ -144,7 +145,12 @@ export class FilterPanel {
     const prop = this.changes?.prop;
     if (!(prop || prop === 0)) return '';
 
-    const propFilters = this.filterItems[prop] || [];
+    if (!this.filterItems[prop]) {
+      this.addNewFilter(defaultType);
+    }
+
+    let propFilters = this.filterItems[prop]
+
     return (
       <div key={this.filterId}>
         {propFilters.map((d, index) => {
@@ -163,10 +169,10 @@ export class FilterPanel {
             <div key={d.id} class={FILTER_LIST_CLASS}>
               <div class={{ 'select-input': true }}>
                 <select class="select-css select-filter" onChange={e => this.onFilterTypeChange(e, prop, index)}>
-                  {this.renderSelectOptions(this.filterItems[prop][index].type, true)}
+                  {this.renderSelectOptions(this.filterItems[prop][index].type, false)}
                 </select>
-                <div class={FILTER_LIST_CLASS_ACTION}>{andOrButton}</div>
-                <div onClick={() => this.onRemoveFilter(d.id)}>
+                {/* <div class={FILTER_LIST_CLASS_ACTION}>{andOrButton}</div> */}
+                <div onClick={() => this.onReset()}>
                   <TrashButton />
                 </div>
               </div>
@@ -175,7 +181,7 @@ export class FilterPanel {
           );
         })}
 
-        {propFilters.length > 0 ? <div class="add-filter-divider"></div> : ''}
+        {/* {propFilters.length > 0 ? <div class="add-filter-divider"></div> : ''} */}
       </div>
     );
   }
@@ -197,23 +203,23 @@ export class FilterPanel {
         <label>{capts.title}</label>
         <div class="filter-holder">{this.getFilterItemsList()}</div>
 
-        <div class="add-filter">
+        {/* <div class="add-filter">
           <select id="add-filter" class="select-css" onChange={e => this.onAddNewFilter(e)}>
             {this.renderSelectOptions(this.currentFilterType)}
           </select>
-        </div>
+        </div> */}
         <div class="filter-actions">
           {this.disableDynamicFiltering &&
             <RevoButton class={{ red: true, save: true }} onClick={() => this.onSave()}>
               {capts.save}
             </RevoButton>
           }
-          <RevoButton class={{ red: true, reset: true }} onClick={() => this.onReset()}>
+          {/* <RevoButton class={{ red: true, reset: true }} onClick={() => this.onReset()}>
             {capts.reset}
-          </RevoButton>
-          <RevoButton class={{ light: true, cancel: true }} onClick={() => this.onCancel()}>
+          </RevoButton> */}
+          {/* <RevoButton class={{ light: true, cancel: true }} onClick={() => this.onCancel()}>
             {capts.cancel}
-          </RevoButton>
+          </RevoButton> */}
         </div>
       </Host>
     );
@@ -242,9 +248,16 @@ export class FilterPanel {
   }, 400);
 
   private onAddNewFilter(e: Event) {
-    const el = e.target as HTMLSelectElement;
-    const type = el.value as FilterType;
+    let el
+    let type: FilterType;
 
+    el = e.target as HTMLSelectElement;
+    type = el.value as FilterType;
+
+    this.addNewFilter(type);
+  }
+
+  private addNewFilter(type: FilterType) {
     this.currentFilterType = type;
     this.addNewFilterToProp();
 

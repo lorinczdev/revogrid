@@ -2,40 +2,23 @@ import { createStore } from '@stencil/store';
 import findIndex from 'lodash/findIndex';
 import range from 'lodash/range';
 
-import { Trimmed, trimmedPlugin } from '../../plugins/trimmed/trimmed.plugin';
+import { Trimmed, trimmedPlugin } from './trimmed.plugin';
 import { setStore } from '../../utils/store.utils';
 import { Observable, RevoGrid } from '../../interfaces';
 import { proxyPlugin } from './data.proxy';
 import { GroupLabelTemplateFunc } from '../../plugins/groupingRow/grouping.row.types';
-import DataType = RevoGrid.DataType;
-import ColumnRegular = RevoGrid.ColumnRegular;
-import DimensionRows = RevoGrid.DimensionRows;
-import DimensionCols = RevoGrid.DimensionCols;
 
 export interface Group extends RevoGrid.ColumnProperties {
   name: string;
-  children: RevoGrid.ColumnRegular[];
+  children: (RevoGrid.ColumnGrouping | RevoGrid.ColumnRegular)[];
   // props/ids
   ids: (string | number)[];
 }
 export type Groups = Record<any, any>;
-export type GDataType = DataType | ColumnRegular;
-export type GDimension = DimensionRows | DimensionCols;
-export type DataSourceState<T extends GDataType, ST extends GDimension> = {
-  // items - index based array for mapping to source tree
-  items: number[];
-  // all items, used as proxy for sorting, trimming and others
-  proxyItems: number[];
-  // original data source
-  source: T[];
-  // grouping
-  groupingDepth: number;
-  groups: Groups;
-  groupingCustomRenderer?: GroupLabelTemplateFunc;
-  // data source type
-  type: ST;
-  // trim data, to hide entities from visible data source
-  trimmed: Trimmed;
+export type GDataType = RevoGrid.DataType | RevoGrid.ColumnRegular;
+export type GDimension = RevoGrid.DimensionRows | RevoGrid.DimensionCols;
+export type DataSourceState<T1 extends GDataType, T2 extends GDimension> = RevoGrid.DataSourceState<T1, T2> & {
+  groupingCustomRenderer?: GroupLabelTemplateFunc | null;
 };
 
 export default class DataStore<T extends GDataType, ST extends GDimension> {
@@ -44,7 +27,7 @@ export default class DataStore<T extends GDataType, ST extends GDimension> {
     return this.dataStore;
   }
   constructor(type: ST) {
-    const store = (this.dataStore = createStore({
+    const store = (this.dataStore = createStore<DataSourceState<T, ST>>({
       items: [],
       proxyItems: [],
       source: [],
@@ -52,6 +35,7 @@ export default class DataStore<T extends GDataType, ST extends GDimension> {
       groups: {},
       type,
       trimmed: {},
+      groupingCustomRenderer: undefined,
     }));
     store.use(proxyPlugin(store));
     store.use(trimmedPlugin(store));
@@ -82,7 +66,7 @@ export default class DataStore<T extends GDataType, ST extends GDimension> {
     });
     // update data items
     this.store.set('items', items);
-    // apply grooping if present
+    // apply grouping if present
     if (grouping) {
       setStore(this.store, {
         groupingDepth: grouping.depth,
@@ -134,7 +118,7 @@ export function getVisibleSourceItem(store: Observable<DataSourceState<any, any>
  * @param store - store to process
  * @param virtualIndex - virtual index to process
  */
-export function getSourceItem(store: Observable<DataSourceState<any, any>>, virtualIndex: number) {
+export function getSourceItem(store: Observable<DataSourceState<any, any>>, virtualIndex: number): any | undefined {
   const items = store.get('items');
   const source = store.get('source');
   return source[items[virtualIndex]];
