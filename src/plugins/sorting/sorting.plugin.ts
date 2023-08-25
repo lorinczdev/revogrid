@@ -144,6 +144,7 @@ export default class SortingPlugin extends BasePlugin {
    * @param data - this.stores['rgRow'].store.get('source')
    */
   async sort(sorting: SortingOrder, sortingFunc: SortingOrderFunction, types: RevoGrid.DimensionRows[] = ['rgRow', 'rowPinStart', 'rowPinEnd']) {
+    return
     // if no sorting - reset
     if (!size(sorting)) {
       this.sorting = null;
